@@ -1,9 +1,9 @@
 const ganache = require('ganache');
 const { describe, it, beforeEach } = require('mocha');
-const { default: Web3 } = require('web3');
+const { Web3 } = require('web3');
 const assert = require('assert');
 
-const { interface, bytecode } = require('../compile');
+const { abi, evm } = require('../compile');
 
 global.crypto = {
    getRandomValues: function (arr) {
@@ -24,9 +24,9 @@ beforeEach(async () => {
    accounts = await web3.eth.getAccounts();
 
    // use one of those accounts to deploy the contract
-   inbox = await new web3.eth.Contract(JSON.parse(interface))
+   inbox = await new web3.eth.Contract(abi)
       .deploy({
-         data: bytecode,
+         data: evm.bytecode.object,
          arguments: [initialString],
       })
       .send({
@@ -39,17 +39,13 @@ describe('Inbox', () => {
    it('deploys a contract', () => {
       assert.ok(inbox.options.address);
    });
-
    it('has a default message', async () => {
       const message = await inbox.methods.message().call();
-      assert.equal(message, initialString);
+      assert.equal(message, 'Hi there!');
    });
-
-   it('can modify a message', async () => {
-      await inbox.methods.setMessage('Bye there!').send({
-         from: accounts[0],
-      });
+   it('can change the message', async () => {
+      await inbox.methods.setMessage('bye').send({ from: accounts[0] });
       const message = await inbox.methods.message().call();
-      assert.equal(message, 'Bye there!');
+      assert.equal(message, 'bye');
    });
 });
