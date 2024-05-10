@@ -3,11 +3,12 @@ const { Web3 } = require('web3');
 require('dotenv').config();
 
 const { abi, evm } = require('./compile');
+console.log(abi);
+const provider = new HDWalletProvider({
+   mnemonic: process.env.METAMASK_ACC_MNEMONIC,
+   providerOrUrl: process.env.SEPOLIA_INFURA_ENDPOINT,
+});
 
-const provider = new HDWalletProvider(
-   process.env.METAMASK_ACC_MNEMONIC,
-   process.env.SEPOLIA_INFURA_ENDPOINT
-);
 const web3 = new Web3(provider);
 
 const deploy = async () => {
