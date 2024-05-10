@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import web3 from './web3';
 import './App.css';
 
 function App() {
    const [count, setCount] = useState(0);
+
+   useEffect(() => {
+      console.log('web3.', web3.eth.getAccounts().then(console.log));
+   }, []);
 
    return (
       <>
