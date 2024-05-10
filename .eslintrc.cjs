@@ -19,11 +19,4 @@ module.exports = {
          { allowConstantExport: true },
       ],
    },
-   'prettier/prettier': [
-      'error',
-      {
-         singleQuote: true,
-         parser: 'flow',
-      },
-   ],
 };
