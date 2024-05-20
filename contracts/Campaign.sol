@@ -26,8 +26,8 @@ contract Campaign {
     }
 
     // Constructor to initialize the contract
-    constructor(uint minimum) {
-        manager = msg.sender; // Set the manager's address
+    constructor(uint minimum, address creator) {
+        manager = creator; // Set the manager's address
         minimumContribution = minimum; // Set the minimum contribution
     }
 
@@ -75,5 +75,23 @@ contract Campaign {
 
         currentRequest.complete = true; // Mark the request as complete
         currentRequest.recipient.transfer(currentRequest.value); // Transfer the requested amount to the recipient
+    }
+}
+
+// Factory contract for creating and managing multiple campaigns
+contract CampaignFactory {
+    address[] public deployedCampaigns; // Array to store addresses of deployed campaigns
+
+    // Function to create a new campaign
+    function createCampaign(uint minimum) public {
+        // Create a new Campaign contract instance
+        Campaign newCampaign = new Campaign(minimum, msg.sender);
+        // Store the address of the new Campaign contract in the deployedCampaigns array
+        deployedCampaigns.push(address(newCampaign));
+    }
+
+    // Function to get the list of deployed campaigns
+    function getDeployedCampaigns() public view returns (address[] memory) {
+        return deployedCampaigns; // Return the array of deployed campaign addresses
     }
 }
