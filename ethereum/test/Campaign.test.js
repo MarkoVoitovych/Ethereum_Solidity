@@ -3,7 +3,8 @@ const { Web3 } = require('web3');
 const { beforeEach, describe, it } = require('mocha');
 const assert = require('assert');
 
-const { abi, evm } = require('../compile');
+const compiledFactory = require('../build/CampaignFactory.json');
+const compiledCampaign = require('../build/Campaign.json');
 
 global.crypto = {
    getRandomValues: function (arr) {
@@ -16,102 +17,104 @@ global.crypto = {
 
 const web3 = new Web3(ganache.provider());
 
-let lottery;
 let accounts;
+let factory;
+let campaign;
+let campaignAddress;
 
 beforeEach(async () => {
    accounts = await web3.eth.getAccounts();
-   lottery = await new web3.eth.Contract(abi)
+
+   factory = await new web3.eth.Contract(compiledFactory.abi)
       .deploy({
-         data: evm.bytecode.object,
+         data: compiledFactory.evm.bytecode.object,
       })
       .send({
          from: accounts[0],
-         gas: '1000000',
+         gas: '3000000',
       });
+
+   await factory.methods.createCampaign('100').send({
+      from: accounts[0],
+      gas: '3000000',
+   });
+
+   [campaignAddress] = await factory.methods.getDeployedCampaigns().call();
+
+   campaign = new web3.eth.Contract(compiledCampaign.abi, campaignAddress);
 });
 
-describe('Lottery Contract', () => {
-   it('deploys a contract', () => {
-      assert.ok(lottery.options.address);
+describe('Campaigns', () => {
+   it('deploys a factory and a campaign', async () => {
+      assert.ok(factory.options.address);
+      assert.ok(campaign.options.address);
    });
 
-   it('allows one account to enter', async () => {
-      await lottery.methods.enter().send({
-         from: accounts[0],
-         value: web3.utils.toWei('0.002', 'ether'),
-      });
-
-      const players = await lottery.methods.getPlayers().call({
-         from: accounts[0],
-      });
-
-      assert.equal(accounts[0], players[0]);
-      assert.equal(players.length, 1);
+   it('marks caller as the campaign manager', async () => {
+      const manager = await campaign.methods.manager().call();
+      assert.equal(manager, accounts[0]);
    });
 
-   it('allows multiple accounts to enter', async () => {
-      await lottery.methods.enter().send({
-         from: accounts[0],
-         value: web3.utils.toWei('0.002', 'ether'),
-      });
-      await lottery.methods.enter().send({
+   it('allows people to contribute money and marks them as approvers', async () => {
+      await campaign.methods.contribute().send({
          from: accounts[1],
-         value: web3.utils.toWei('0.002', 'ether'),
+         value: '200',
       });
-      await lottery.methods.enter().send({
-         from: accounts[2],
-         value: web3.utils.toWei('0.002', 'ether'),
-      });
-
-      const players = await lottery.methods.getPlayers().call({
-         from: accounts[0],
-      });
-
-      assert.equal(accounts[0], players[0]);
-      assert.equal(accounts[1], players[1]);
-      assert.equal(accounts[2], players[2]);
-      assert.equal(players.length, 3);
+      const isContributor = await campaign.methods
+         .approvers(accounts[1])
+         .call();
+      assert.ok(isContributor);
    });
 
-   it('requires a minimum amount of ether to enter', async () => {
+   it('requires a minimum contribution', async () => {
       try {
-         await lottery.methods.enter().send({
-            from: accounts[0],
-            value: 200,
-         });
-         // if this code would run the test will fail -->
-         assert(false);
-      } catch (error) {
-         assert(error);
-      }
-   });
-
-   it('only manager can call pickWinner', async () => {
-      try {
-         await lottery.methods.pickWinner().send({
+         await campaign.methods.contribute().send({
             from: accounts[1],
+            value: '50',
          });
-         assert(false);
       } catch (error) {
          assert(error);
       }
    });
 
-   it('send money to the winner and resets the players array', async () => {
-      await lottery.methods.enter().send({
+   it('allows a manager to make a payment request', async () => {
+      await campaign.methods.contribute().send({
          from: accounts[0],
-         value: web3.utils.toWei('2', 'ether'),
+         value: web3.utils.toWei('100', 'ether'),
+      });
+      await campaign.methods
+         .createRequest('A', web3.utils.toWei('5', 'ether'), accounts[1])
+         .send({ from: accounts[0], gas: '3000000' });
+
+      // error appears
+      const request = await campaign.methods.getRequest(0).call();
+      assert.equal('Buy batteries', request[0].description);
+   });
+
+   it('processes requests', async () => {
+      await campaign.methods.contribute().send({
+         from: accounts[0],
+         value: web3.utils.toWei('10', 'ether'),
       });
 
-      const initialBalance = await web3.eth.getBalance(accounts[0]);
+      await campaign.methods
+         .createRequest('A', web3.utils.toWei('5', 'ether'), accounts[1])
+         .send({ from: accounts[0], gas: '2000000' });
 
-      await lottery.methods.pickWinner().send({
+      await campaign.methods.approveRequest(0).send({
          from: accounts[0],
+         gas: '2000000',
       });
 
-      const finalBalance = await web3.eth.getBalance(accounts[0]);
-      const difference = finalBalance - initialBalance;
-      assert(difference > web3.utils.toWei('1.9', 'ether'));
+      await campaign.methods.finalizeRequest(0).send({
+         from: accounts[0],
+         gas: '2000000',
+      });
+
+      let balance = await web3.eth.getBalance(accounts[1]);
+      balance = web3.utils.fromWei(balance, 'ether');
+      balance = parseFloat(balance);
+      console.log(balance);
+      assert(balance > 1004);
    });
 });

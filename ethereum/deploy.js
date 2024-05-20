@@ -19,7 +19,7 @@ const deploy = async () => {
          data: evm.bytecode.object,
       })
       .send({
-         gas: '1000000',
+         gas: '3000000',
          from: accounts[0],
       });
 
