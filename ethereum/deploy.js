@@ -2,8 +2,8 @@ const HDWalletProvider = require('@truffle/hdwallet-provider');
 const { Web3 } = require('web3');
 require('dotenv').config();
 
-const { abi, evm } = require('./compile');
-console.log(abi);
+const { abi, evm } = require('./build/CampaignFactory.json');
+
 const provider = new HDWalletProvider({
    mnemonic: process.env.METAMASK_ACC_MNEMONIC,
    providerOrUrl: process.env.SEPOLIA_INFURA_ENDPOINT,
