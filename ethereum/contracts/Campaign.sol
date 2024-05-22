@@ -37,7 +37,7 @@ contract Campaign {
         }
     }
 
-    function createRequest(string calldata description, uint value, address payable recipient) public restricted {
+    function createRequest(string memory description, uint value, address payable recipient) public restricted {
         Request storage newRequest = requests.push();
         newRequest.description = description;
         newRequest.value = value;
@@ -64,10 +64,26 @@ contract Campaign {
         require(address(this).balance >= currentRequest.value, "Not enough ETH");
 
         currentRequest.complete = true;
-        currentRequest.recipient.transfer(currentRequest.value);
+        payable(currentRequest.recipient).transfer(currentRequest.value);
     }
 
-     function getRequest(uint index) public view returns (
+     function getSummary() public view returns (
+      uint, uint, uint, uint, address
+      ) {
+        return (
+          minimumContribution,
+          address(this).balance,
+          requests.length,
+          approversCount,
+          manager
+        );
+    }
+    
+    function getRequestsCount() public view returns (uint) {
+        return requests.length;
+    }
+
+    function getRequest(uint index) public view returns (
         string memory description,
         uint value,
         address recipient,
@@ -86,14 +102,14 @@ contract Campaign {
 }
 
 contract CampaignFactory {
-    address[] public deployedCampaigns;
+    address payable [] public deployedCampaigns;
 
     function createCampaign(uint minimum) public {
-        Campaign newCampaign = new Campaign(minimum, msg.sender);
-        deployedCampaigns.push(address(newCampaign));
+        address newCampaign = address(new Campaign(minimum, msg.sender));
+        deployedCampaigns.push(payable(newCampaign));
     }
 
-    function getDeployedCampaigns() public view returns (address[] memory) {
+    function getDeployedCampaigns() public view returns (address payable [] memory) {
         return deployedCampaigns;
     }
 }
